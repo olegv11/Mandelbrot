@@ -178,11 +178,6 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             __m256d x = zero;
             __m256d y = zero;
 
-            if (j == pixelHeight / 2 && i == pixelWidth / 2)
-            {
-                int x = 0;
-            }
-
             __m256d squareX = _mm256_mul_pd(x, x);
             __m256d squareY = _mm256_mul_pd(y, y);
             __m256d square = _mm256_add_pd(squareX, squareY);
@@ -238,7 +233,7 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
 
             __m128i result = _mm_or_si128(_mm_or_si128(rpix, gpix), _mm_or_si128(bpix, apix));
             
-            _mm_storeu_si128((__m128i*)pixel, result);
+            _mm_store_si128((__m128i*)pixel, result);
             pixel += 4;
 
             x0 = _mm256_add_pd(x0, xStep);
