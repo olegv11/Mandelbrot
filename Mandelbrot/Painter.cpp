@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <xmmintrin.h>
 #include <immintrin.h>
+#include "iacaMarks.h"
 
 #define MAKERGB(r,g,b) ((r) << 16 | (g) << 8 | (b) << 0)
 
@@ -165,6 +166,7 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
 
         for (int32_t i = 0; i < pixelWidth; i += 4)
         {
+            IACA_VC64_START
             int32_t iteration = 0;
             __m256i iterations = zeroi256;
             __m256d x = zero;
@@ -178,15 +180,18 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
 
             while (_mm256_movemask_pd(leqFour) && iteration < maxIterations)
             {
-                __m256d temp = _mm256_add_pd(x0, _mm256_sub_pd(squareX, squareY));
+                __m256d xSuby = _mm256_sub_pd(x, y);
+                __m256d xAddy = _mm256_add_pd(x, y);
+                __m256d xSqSubySq = _mm256_mul_pd(xSuby, xAddy);
+
+                __m256d temp = _mm256_add_pd(x0, xSqSubySq);
                 __m256d xy = _mm256_mul_pd(x, y);
-                y = _mm256_add_pd(y0, _mm256_add_pd(xy, xy));
+                __m256d xytwice = _mm256_add_pd(xy, xy);
+                y = _mm256_add_pd(y0, xytwice);
                 x = temp;
                 iterations = _mm256_add_epi32(iterations, _mm256_and_si256(leqFourI, increments));
 
-                squareX = _mm256_mul_pd(x, x);
-                squareY = _mm256_mul_pd(y, y);
-                square = _mm256_add_pd(squareX, squareY);
+                square = _mm256_add_pd(_mm256_mul_pd(xSuby, xSuby), xytwice);
                 leqFour = _mm256_cmp_pd(square, four, _CMP_LE_OQ);
                 leqFourI = _mm256_castpd_si256(leqFour);
 
@@ -211,6 +216,7 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             const float RedLUT[5] = {0, 0, 255, 255, 0};
             const float GreenLUT[5] = { 0, 255, 255, 0, 0 };
             const float BlueLUT[5] = { 255, 0, 0, 0, 0 };
+
 
             for (int i = 0; i < 5; i++)
             {
@@ -250,9 +256,9 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             _mm_store_si128((__m128i*)pixel, result);
             pixel += 4;
 
-            x0 = _mm256_add_pd(x0, xStep);
-            
+            x0 = _mm256_add_pd(x0, xStep);            
         }
+        IACA_VC64_END
         y0 = _mm256_sub_pd(y0, yStep);
     }
 }
