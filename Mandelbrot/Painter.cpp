@@ -107,16 +107,6 @@ void CSimplePainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
     }
 }
 
-CAvxPainter::CAvxPainter(int pixelWidth, int pixelHeight, int maxIterations)
-    : pixelWidth(pixelWidth), pixelHeight(pixelHeight), maxIterations(maxIterations)
-{
-    assert(pixelWidth % 4 == 0);
-}
-
-
-CAvxPainter::~CAvxPainter()
-{
-}
 
 bool AnyLaneNonZero(__m256i x)
 {
@@ -128,8 +118,9 @@ __m256d int64_to_double(__m256i x) {
     return _mm256_sub_pd(_mm256_castsi256_pd(x), _mm256_set1_pd(0x0018000000000000));
 }
 
-void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
+void CAvxPainter::DrawMandelbrot(int pixelWidth, int pixelHeight, int maxIterations, TRect mandelbrotRect, uint32_t *out)
 {
+    assert(pixelWidth % 4 == 0);
     assert((intptr_t)out % 16 == 0);
     __m256d zero = _mm256_set1_pd(0.0);
     __m128 zero128 = _mm_set1_ps(0);

@@ -13,9 +13,9 @@ LARGE_INTEGER g_PerformanceFrequency;
 
 
 #if 1
-static CAvxPainter g_Painter(WIDTH, HEIGHT, 512);
+static CAvxPainter g_Painter;
 #else
-static CSimplePainter g_Painter(WIDTH, HEIGHT, 100);
+static CSimplePainter g_Painter(WIDTH, HEIGHT, 128);
 #endif
 
 static Gdiplus::Bitmap g_mandelbrotBitmap(WIDTH, HEIGHT, PixelFormat32bppRGB);
@@ -41,7 +41,7 @@ VOID DrawFrame(HDC hdc)
 
     LARGE_INTEGER start, end;
     QueryPerformanceCounter(&start);
-    g_Painter.DrawMandelbrot(mandelbrotRect, g_BackBuffer);
+    g_Painter.DrawMandelbrot(WIDTH, HEIGHT, 128, mandelbrotRect, g_BackBuffer);
     QueryPerformanceCounter(&end);
 
     int drawTime = (int)(1000 * (end.QuadPart - start.QuadPart) / g_PerformanceFrequency.QuadPart);
