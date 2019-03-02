@@ -217,26 +217,34 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             const float GreenLUT[5] = { 0, 255, 255, 0, 0 };
             const float BlueLUT[5] = { 255, 0, 0, 0, 0 };
 
+            __m128 currentRed, currentGreen, currentBlue;
+            __m128 currentIndexMatch, nextIndexMatch;
+            __m128i currentIndex;
 
-            for (int i = 0; i < 5; i++)
-            {
-                __m128 currentRed = _mm_set1_ps(RedLUT[i]);
-                __m128 currentGreen = _mm_set1_ps(GreenLUT[i]);
-                __m128 currentBlue = _mm_set1_ps(BlueLUT[i]);
+#define LOOP_ITER(i) \
+            currentRed = _mm_set1_ps(RedLUT[i]); \
+            currentGreen = _mm_set1_ps(GreenLUT[i]); \
+            currentBlue = _mm_set1_ps(BlueLUT[i]); \
+ \
+            currentIndex = _mm_set1_epi32(i); \
+            currentIndexMatch = _mm_castsi128_ps(_mm_cmpeq_epi32(LUTindices, currentIndex)); \
+            nextIndexMatch = _mm_castsi128_ps(_mm_cmpeq_epi32(nextLUTIndices, currentIndex)); \
+ \
+            red0 = _mm_add_ps(red0, _mm_and_ps(currentIndexMatch, currentRed)); \
+            red1 = _mm_add_ps(red1, _mm_and_ps(nextIndexMatch, currentRed)); \
+ \
+            green0 = _mm_add_ps(green0, _mm_and_ps(currentIndexMatch, currentGreen)); \
+            green1 = _mm_add_ps(green1, _mm_and_ps(nextIndexMatch, currentGreen)); \
+ \
+            blue0 = _mm_add_ps(blue0, _mm_and_ps(currentIndexMatch, currentBlue)); \
+            blue1 = _mm_add_ps(blue1, _mm_and_ps(nextIndexMatch, currentBlue));
 
-                __m128i currentIndex = _mm_set1_epi32(i);
-                __m128 currentIndexMatch = _mm_castsi128_ps(_mm_cmpeq_epi32(LUTindices, currentIndex));
-                __m128 nextIndexMatch = _mm_castsi128_ps(_mm_cmpeq_epi32(nextLUTIndices, currentIndex));
-
-                red0 = _mm_add_ps(red0, _mm_and_ps(currentIndexMatch, currentRed));
-                red1 = _mm_add_ps(red1, _mm_and_ps(nextIndexMatch, currentRed));
-
-                green0 = _mm_add_ps(green0, _mm_and_ps(currentIndexMatch, currentGreen));
-                green1 = _mm_add_ps(green1, _mm_and_ps(nextIndexMatch, currentGreen));
-
-                blue0 = _mm_add_ps(blue0, _mm_and_ps(currentIndexMatch, currentBlue));
-                blue1 = _mm_add_ps(blue1, _mm_and_ps(nextIndexMatch, currentBlue));
-            }            
+            LOOP_ITER(0);
+            LOOP_ITER(1);
+            LOOP_ITER(2);
+            LOOP_ITER(3);
+            LOOP_ITER(4);
+            LOOP_ITER(5);
 
             __m128 red = lerpAvx(red0, red1, t);
             __m128 green = lerpAvx(green0, green1, t);
