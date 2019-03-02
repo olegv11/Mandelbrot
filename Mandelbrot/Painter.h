@@ -9,6 +9,15 @@ struct TRect
     double height;
 };
 
+struct PainterDrawArea
+{
+    uint32_t *out;
+    int width;
+    int height;
+    int stride;
+};
+
+
 class CSimplePainter
 {
 public:
@@ -28,5 +37,5 @@ private:
 class CAvxPainter
 {
 public:
-    static void DrawMandelbrot(int pixelWidth, int pixelHeight, int maxIterations, TRect mandelbrotRect, uint32_t *out);
+    static void DrawMandelbrot(int maxIterations, PainterDrawArea drawArea, TRect mandelbrotRect);
 };

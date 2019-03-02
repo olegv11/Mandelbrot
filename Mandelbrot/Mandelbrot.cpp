@@ -3,6 +3,7 @@
 #include <string>
 #include <gdiplus.h>
 #include "Painter.h"
+#include <assert.h>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -11,11 +12,13 @@ alignas(32) static uint32_t g_BackBuffer[WIDTH * HEIGHT];
 BITMAPINFO g_BackBufferInfo;
 LARGE_INTEGER g_PerformanceFrequency;
 
+#define AVX 1
+#define ITERATIONS 128
 
-#if 1
+#if AVX
 static CAvxPainter g_Painter;
 #else
-static CSimplePainter g_Painter(WIDTH, HEIGHT, 128);
+static CSimplePainter g_Painter(WIDTH, HEIGHT, ITERATIONS);
 #endif
 
 static Gdiplus::Bitmap g_mandelbrotBitmap(WIDTH, HEIGHT, PixelFormat32bppRGB);
@@ -40,8 +43,36 @@ VOID DrawFrame(HDC hdc)
 
 
     LARGE_INTEGER start, end;
+    
     QueryPerformanceCounter(&start);
-    g_Painter.DrawMandelbrot(WIDTH, HEIGHT, 128, mandelbrotRect, g_BackBuffer);
+#if AVX
+    int verticalDivisions = 4;
+    int horizontalDivisions = 8;
+    assert(WIDTH % verticalDivisions == 0);
+    assert(HEIGHT % horizontalDivisions == 0);
+
+    for (int i = 0; i < verticalDivisions; i++)
+    {
+        for (int j = 0; j < horizontalDivisions; j++)
+        {
+            PainterDrawArea area;
+            area.width = WIDTH / verticalDivisions;
+            area.height = HEIGHT / horizontalDivisions;
+            area.stride = WIDTH;
+            area.out = &g_BackBuffer[j * WIDTH * HEIGHT / horizontalDivisions + i * WIDTH / verticalDivisions];
+
+            TRect partRect;
+            partRect.width = mandelbrotRect.width / verticalDivisions;
+            partRect.height = mandelbrotRect.height / horizontalDivisions;
+            partRect.left = mandelbrotRect.left + i * partRect.width;
+            partRect.up = mandelbrotRect.up - j * partRect.height;
+
+            g_Painter.DrawMandelbrot(ITERATIONS, area, partRect);
+        }
+    }
+#else
+    g_Painter.DrawMandelbrot(mandelbrotRect, g_BackBuffer);
+#endif
     QueryPerformanceCounter(&end);
 
     int drawTime = (int)(1000 * (end.QuadPart - start.QuadPart) / g_PerformanceFrequency.QuadPart);

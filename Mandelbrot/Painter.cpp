@@ -113,10 +113,10 @@ __m256d int64_to_double(__m256i x) {
     return _mm256_sub_pd(_mm256_castsi256_pd(x), _mm256_set1_pd(0x0018000000000000));
 }
 
-void CAvxPainter::DrawMandelbrot(int pixelWidth, int pixelHeight, int maxIterations, TRect mandelbrotRect, uint32_t *out)
+void CAvxPainter::DrawMandelbrot(int maxIterations, PainterDrawArea drawArea, TRect mandelbrotRect)
 {
-    assert(pixelWidth % 4 == 0);
-    assert((intptr_t)out % 16 == 0);
+    assert(drawArea.width % 4 == 0);
+    assert((intptr_t)drawArea.out % 16 == 0);
     __m256d zero = _mm256_set1_pd(0.0);
     __m128 zero128 = _mm_set1_ps(0);
     __m256i zeroi256 = _mm256_set1_epi32(0);
@@ -137,20 +137,20 @@ void CAvxPainter::DrawMandelbrot(int pixelWidth, int pixelHeight, int maxIterati
     double up = mandelbrotRect.up;
     double down = up - mandelbrotRect.height;
 
-    __m256d yStep = _mm256_set1_pd(mandelbrotRect.height / pixelHeight);
-    __m256d xStep = _mm256_set1_pd(4 * mandelbrotRect.width / pixelWidth);
+    __m256d yStep = _mm256_set1_pd(mandelbrotRect.height / drawArea.height);
+    __m256d xStep = _mm256_set1_pd(4 * mandelbrotRect.width / drawArea.width);
     __m256d y0 = _mm256_set1_pd(up);
     __m256d xAtLineStart = _mm256_setr_pd(left, 
-        left + mandelbrotRect.width / pixelWidth,
-        left + 2 * mandelbrotRect.width / pixelWidth,
-        left + 3 * mandelbrotRect.width / pixelWidth);
+        left + mandelbrotRect.width / drawArea.width,
+        left + 2 * mandelbrotRect.width / drawArea.width,
+        left + 3 * mandelbrotRect.width / drawArea.width);
 
-    for (int32_t j = 0; j < pixelHeight; j++)
+    for (int32_t j = 0; j < drawArea.height; j++)
     {
-        uint32_t *pixel = &out[j * pixelWidth];
+        uint32_t *pixel = &drawArea.out[j * drawArea.stride];
         __m256d x0 = xAtLineStart;
 
-        for (int32_t i = 0; i < pixelWidth; i += 4)
+        for (int32_t i = 0; i < drawArea.width; i += 4)
         {
             IACA_VC64_START
             int32_t iteration = 0;
