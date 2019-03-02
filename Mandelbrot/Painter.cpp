@@ -210,6 +210,7 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             // Indices four and five are both "black", so let's consider them the same.
             LUTindices = _mm_min_epi32(LUTindices, fouri);
             __m128i nextLUTIndices = _mm_add_epi32(LUTindices, onei);
+            nextLUTIndices = _mm_min_epi32(nextLUTIndices, fouri);
 
             __m128 red0 = zero128, red1 = zero128, green0 = zero128, green1 = zero128, blue0 = zero128, blue1 = zero128;
 
