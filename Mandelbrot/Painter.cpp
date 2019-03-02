@@ -27,9 +27,9 @@ T lerp(T a, T b, double t)
     return (T)(a + (b - a) * t);
 }
 
-__forceinline __m256d lerpAvx(__m256d a, __m256d b, __m256d t)
+__forceinline __m128 lerpAvx(__m128 a, __m128 b, __m128 t)
 {
-    return _mm256_add_pd(a, _mm256_mul_pd(_mm256_sub_pd(b, a), t));
+    return _mm_add_ps(a, _mm_mul_ps(_mm_sub_ps(b, a), t));
 }
 
 
@@ -113,7 +113,7 @@ CAvxPainter::CAvxPainter(int pixelWidth, int pixelHeight, int maxIterations)
 
     //  0  1                   15 16                 31 32                 47 
     // R0 R1 R2 R3 R4 R5 X X... X G0 G1 G2 G3 G4 G5 X X B0 B1 B2 B3 B4 B5 X X
-    LUT = (double *)_aligned_malloc(3 * 16 * sizeof(double), 16);
+    LUT = (float *)_aligned_malloc(3 * 16 * sizeof(float), 16);
     RedLUT = LUT;
     GreenLUT = LUT + 16;
     BlueLUT = LUT + 16 * 2;
@@ -141,9 +141,12 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
 {
     assert((intptr_t)out % 16 == 0);
     __m256d zero = _mm256_set1_pd(0.0);
+    __m128 zero128 = _mm_set1_ps(0);
+    __m256i zeroi256 = _mm256_set1_epi32(0);
     __m256d two = _mm256_set1_pd(2.0);
     __m256d four = _mm256_set1_pd(4.0);
-    __m256i zeroi = _mm256_set1_epi32(0);
+    __m128i fouri = _mm_set1_epi32(4);
+    __m128i onei = _mm_set1_epi32(1);
     __m128i twofivefive = _mm_set1_epi32(255);
 
     __m256d maxIter = _mm256_set1_pd((double)maxIterations);
@@ -165,7 +168,6 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
         left + 2 * mandelbrotRect.width / pixelWidth,
         left + 3 * mandelbrotRect.width / pixelWidth);
 
-
     for (int32_t j = 0; j < pixelHeight; j++)
     {
         uint32_t *pixel = &out[j * pixelWidth];
@@ -174,7 +176,7 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
         for (int32_t i = 0; i < pixelWidth; i += 4)
         {
             int32_t iteration = 0;
-            __m256i iterations = zeroi;
+            __m256i iterations = zeroi256;
             __m256d x = zero;
             __m256d y = zero;
 
@@ -205,26 +207,42 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             __m256d rat = _mm256_div_pd(iterationsD, quarter);
             __m256d floored = _mm256_floor_pd(rat);
 
-            __m256d t = _mm256_sub_pd(rat, floored);
+            __m256d td = _mm256_sub_pd(rat, floored);
+            __m128 t = _mm256_cvtpd_ps(td);
             __m128i LUTindices = _mm256_cvtpd_epi32(floored);
+            
+            // Indices four and five are both "black", so let's consider them the same.
+            LUTindices = _mm_min_epi32(LUTindices, fouri);
+            __m128i nextLUTIndices = _mm_add_epi32(LUTindices, onei);
 
-            // !!!!
-            int32_t idx[4] = { LUTindices.m128i_i32[0], LUTindices.m128i_i32[1], LUTindices.m128i_i32[2], LUTindices.m128i_i32[3] };
-            __m256d red0 = _mm256_setr_pd(RedLUT[idx[0]], RedLUT[idx[1]], RedLUT[idx[2]], RedLUT[idx[3]]);
-            __m256d green0 = _mm256_setr_pd(GreenLUT[idx[0]], GreenLUT[idx[1]], GreenLUT[idx[2]], GreenLUT[idx[3]]);
-            __m256d blue0 = _mm256_setr_pd(BlueLUT[idx[0]], BlueLUT[idx[1]], BlueLUT[idx[2]], BlueLUT[idx[3]]);
+            __m128 red0 = zero128, red1 = zero128, green0 = zero128, green1 = zero128, blue0 = zero128, blue1 = zero128;
+            for (int i = 0; i < 5; i++)
+            {
+                __m128 currentRed = _mm_set1_ps(RedLUT[i]);
+                __m128 currentGreen = _mm_set1_ps(GreenLUT[i]);
+                __m128 currentBlue = _mm_set1_ps(BlueLUT[i]);
 
-            __m256d red1 = _mm256_setr_pd(RedLUT[idx[0] + 1], RedLUT[idx[1] + 1], RedLUT[idx[2] + 1], RedLUT[idx[3] + 1]);
-            __m256d green1 = _mm256_setr_pd(GreenLUT[idx[0] + 1], GreenLUT[idx[1] + 1], GreenLUT[idx[2] + 1], GreenLUT[idx[3] + 1]);
-            __m256d blue1 = _mm256_setr_pd(BlueLUT[idx[0] + 1], BlueLUT[idx[1] + 1], BlueLUT[idx[2] + 1], BlueLUT[idx[3] + 1]);
+                __m128i currentIndex = _mm_set1_epi32(i);
+                __m128 currentIndexMatch = _mm_castsi128_ps(_mm_cmpeq_epi32(LUTindices, currentIndex));
+                __m128 nextIndexMatch = _mm_castsi128_ps(_mm_cmpeq_epi32(nextLUTIndices, currentIndex));
 
-            __m256d red = lerpAvx(red0, red1, t);
-            __m256d green = lerpAvx(green0, green1, t);
-            __m256d blue = lerpAvx(blue0, blue1, t);
+                red0 = _mm_add_ps(red0, _mm_and_ps(currentIndexMatch, currentRed));
+                red1 = _mm_add_ps(red1, _mm_and_ps(nextIndexMatch, currentRed));
 
-            __m128i redi = _mm256_cvtpd_epi32(red);
-            __m128i greeni = _mm256_cvtpd_epi32(green);
-            __m128i bluei = _mm256_cvtpd_epi32(blue);
+                green0 = _mm_add_ps(green0, _mm_and_ps(currentIndexMatch, currentGreen));
+                green1 = _mm_add_ps(green1, _mm_and_ps(nextIndexMatch, currentGreen));
+
+                blue0 = _mm_add_ps(blue0, _mm_and_ps(currentIndexMatch, currentBlue));
+                blue1 = _mm_add_ps(blue1, _mm_and_ps(nextIndexMatch, currentBlue));
+            }            
+
+            __m128 red = lerpAvx(red0, red1, t);
+            __m128 green = lerpAvx(green0, green1, t);
+            __m128 blue = lerpAvx(blue0, blue1, t);
+
+            __m128i redi = _mm_cvtps_epi32(red);
+            __m128i greeni = _mm_cvtps_epi32(green);
+            __m128i bluei = _mm_cvtps_epi32(blue);
 
             __m128i rpix = _mm_slli_epi32(redi, 16);
             __m128i gpix = _mm_slli_epi32(greeni, 8);
@@ -237,6 +255,7 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             pixel += 4;
 
             x0 = _mm256_add_pd(x0, xStep);
+            
         }
         y0 = _mm256_sub_pd(y0, yStep);
     }
