@@ -108,11 +108,6 @@ void CSimplePainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
 }
 
 
-bool AnyLaneNonZero(__m256i x)
-{
-    return x.m256i_i64[0] || x.m256i_i64[1] || x.m256i_i64[2] || x.m256i_i64[3];
-}
-
 __m256d int64_to_double(__m256i x) {
     x = _mm256_add_epi64(x, _mm256_castpd_si256(_mm256_set1_pd(0x0018000000000000)));
     return _mm256_sub_pd(_mm256_castsi256_pd(x), _mm256_set1_pd(0x0018000000000000));
