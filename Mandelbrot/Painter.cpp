@@ -110,21 +110,11 @@ CAvxPainter::CAvxPainter(int pixelWidth, int pixelHeight, int maxIterations)
     : pixelWidth(pixelWidth), pixelHeight(pixelHeight), maxIterations(maxIterations)
 {
     assert(pixelWidth % 4 == 0);
-
-    //  0  1                   15 16                 31 32                 47 
-    // R0 R1 R2 R3 R4 R5 X X... X G0 G1 G2 G3 G4 G5 X X B0 B1 B2 B3 B4 B5 X X
-    LUT = (float *)_aligned_malloc(3 * 16 * sizeof(float), 16);
-    RedLUT = LUT;
-    GreenLUT = LUT + 16;
-    BlueLUT = LUT + 16 * 2;
-
-    CreateLUT();
 }
 
 
 CAvxPainter::~CAvxPainter()
 {
-    _aligned_free(LUT);
 }
 
 bool AnyLaneNonZero(__m256i x)
@@ -216,6 +206,11 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             __m128i nextLUTIndices = _mm_add_epi32(LUTindices, onei);
 
             __m128 red0 = zero128, red1 = zero128, green0 = zero128, green1 = zero128, blue0 = zero128, blue1 = zero128;
+
+            const float RedLUT[5] = {0, 0, 255, 255, 0};
+            const float GreenLUT[5] = { 0, 255, 255, 0, 0 };
+            const float BlueLUT[5] = { 255, 0, 0, 0, 0 };
+
             for (int i = 0; i < 5; i++)
             {
                 __m128 currentRed = _mm_set1_ps(RedLUT[i]);
@@ -259,16 +254,4 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
         }
         y0 = _mm256_sub_pd(y0, yStep);
     }
-}
-
-
-#define MAKELUT(i, r, g, b) do { RedLUT[i] = (r); GreenLUT[i] = (g); BlueLUT[i] = (b); } while(0)
-void CAvxPainter::CreateLUT()
-{
-    MAKELUT(0, 0, 0, 255);
-    MAKELUT(1, 0, 255, 0);
-    MAKELUT(2, 255, 255, 0);
-    MAKELUT(3, 255, 0, 0);
-    MAKELUT(4, 0, 0, 0);
-    MAKELUT(5, 0, 0, 0);
 }

@@ -38,11 +38,6 @@ private:
     int pixelWidth;
     int pixelHeight;
     int maxIterations;
-    float *LUT;
-    float *GreenLUT;
-    float *RedLUT;
-    float *BlueLUT;
-
 
     // The number of colours in the table, excluding the last one (black)
     // There can be at most 15, since we need a dummy black after the last.
