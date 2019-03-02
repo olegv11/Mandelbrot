@@ -33,8 +33,6 @@ public:
     void DrawMandelbrot(TRect mandelbrotRect, uint32_t *out);
 
 private:
-    void CreateLUT();
-
     int pixelWidth;
     int pixelHeight;
     int maxIterations;

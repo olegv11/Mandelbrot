@@ -179,7 +179,8 @@ void CAvxPainter::DrawMandelbrot(TRect mandelbrotRect, uint32_t *out)
             while (_mm256_movemask_pd(leqFour) && iteration < maxIterations)
             {
                 __m256d temp = _mm256_add_pd(x0, _mm256_sub_pd(squareX, squareY));
-                y = _mm256_add_pd(y0, _mm256_mul_pd(_mm256_mul_pd(two, x), y));
+                __m256d xy = _mm256_mul_pd(x, y);
+                y = _mm256_add_pd(y0, _mm256_add_pd(xy, xy));
                 x = temp;
                 iterations = _mm256_add_epi32(iterations, _mm256_and_si256(leqFourI, increments));
 
